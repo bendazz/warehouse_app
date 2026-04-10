@@ -13,11 +13,56 @@
       <span class="badge">SQLite</span>
     </div>
     <div class="header-right">
+      <span class="user-greeting" id="user-greeting"></span>
+      <button class="btn btn-logout" id="btn-logout" style="display:none;">Logout</button>
       <span class="connection-status" id="status">connecting...</span>
     </div>
   </header>
 
-  <main>
+  <!-- Auth Screen -->
+  <div class="auth-screen" id="auth-screen">
+    <div class="auth-card">
+      <h2>warehouse_db</h2>
+      <p class="auth-subtitle">Sign in to manage inventory</p>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login">Login</button>
+        <button class="auth-tab" id="tab-register">Register</button>
+      </div>
+
+      <form id="login-form" class="auth-form">
+        <div class="form-row">
+          <label for="l-username">Username</label>
+          <input type="text" id="l-username" required />
+        </div>
+        <div class="form-row">
+          <label for="l-password">Password</label>
+          <input type="password" id="l-password" required />
+        </div>
+        <div id="login-error" class="form-error"></div>
+        <button type="submit" class="btn btn-save btn-full">Login</button>
+      </form>
+
+      <form id="auth-register-form" class="auth-form" style="display:none;">
+        <div class="form-row">
+          <label for="r-username">Username</label>
+          <input type="text" id="r-username" required />
+        </div>
+        <div class="form-row">
+          <label for="r-password">Password</label>
+          <input type="password" id="r-password" required />
+        </div>
+        <div class="form-row">
+          <label for="r-confirm">Confirm Password</label>
+          <input type="password" id="r-confirm" required />
+        </div>
+        <div id="register-error" class="form-error"></div>
+        <button type="submit" class="btn btn-save btn-full">Register</button>
+      </form>
+    </div>
+  </div>
+
+  <main style="display:none;">
     <div class="toolbar">
       <div class="toolbar-left">
         <span class="table-label">inventory</span>

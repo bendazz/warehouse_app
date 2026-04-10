@@ -1,3 +1,6 @@
+// --- Elements ---
+const authScreen = document.getElementById("auth-screen");
+const mainEl = document.querySelector("main");
 const statusEl = document.getElementById("status");
 const rowCountEl = document.getElementById("row-count");
 const tbody = document.getElementById("inventory-body");
@@ -6,17 +9,144 @@ const footerInfo = document.getElementById("footer-info");
 const modalOverlay = document.getElementById("modal-overlay");
 const modalTitle = document.getElementById("modal-title");
 const itemForm = document.getElementById("item-form");
+const userGreeting = document.getElementById("user-greeting");
+const btnLogout = document.getElementById("btn-logout");
 
 let allItems = [];
 let sortCol = null;
 let sortDir = "asc";
-let editingId = null; // null = creating, number = editing
+let editingId = null;
+
+// --- Auth ---
+
+const tabLogin = document.getElementById("tab-login");
+const tabRegister = document.getElementById("tab-register");
+const loginForm = document.getElementById("login-form");
+const registerForm = document.getElementById("auth-register-form");
+const loginError = document.getElementById("login-error");
+const registerError = document.getElementById("register-error");
+
+tabLogin.addEventListener("click", () => {
+  tabLogin.classList.add("active");
+  tabRegister.classList.remove("active");
+  loginForm.style.display = "";
+  registerForm.style.display = "none";
+  loginError.textContent = "";
+  registerError.textContent = "";
+});
+
+tabRegister.addEventListener("click", () => {
+  tabRegister.classList.add("active");
+  tabLogin.classList.remove("active");
+  registerForm.style.display = "";
+  loginForm.style.display = "none";
+  loginError.textContent = "";
+  registerError.textContent = "";
+});
+
+function showApp(username) {
+  authScreen.style.display = "none";
+  mainEl.style.display = "";
+  userGreeting.textContent = username;
+  btnLogout.style.display = "";
+  fetchInventory();
+}
+
+function showAuth() {
+  authScreen.style.display = "";
+  mainEl.style.display = "none";
+  userGreeting.textContent = "";
+  btnLogout.style.display = "none";
+  statusEl.textContent = "";
+  statusEl.className = "connection-status";
+}
+
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  loginError.textContent = "";
+  const username = document.getElementById("l-username").value.trim();
+  const password = document.getElementById("l-password").value;
+
+  try {
+    const res = await fetch("/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.detail || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    showApp(data.username);
+  } catch (err) {
+    loginError.textContent = err.message;
+  }
+});
+
+registerForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  registerError.textContent = "";
+  const username = document.getElementById("r-username").value.trim();
+  const password = document.getElementById("r-password").value;
+  const confirm = document.getElementById("r-confirm").value;
+
+  if (password !== confirm) {
+    registerError.textContent = "Passwords do not match.";
+    return;
+  }
+
+  try {
+    const res = await fetch("/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.detail || `HTTP ${res.status}`);
+    }
+    // Auto-login after registration
+    const loginRes = await fetch("/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!loginRes.ok) throw new Error("Registration succeeded but login failed");
+    const data = await loginRes.json();
+    showApp(data.username);
+  } catch (err) {
+    registerError.textContent = err.message;
+  }
+});
+
+btnLogout.addEventListener("click", async () => {
+  await fetch("/logout", { method: "POST" });
+  showAuth();
+});
+
+// --- Check existing session on load ---
+async function checkSession() {
+  try {
+    const res = await fetch("/me");
+    if (res.ok) {
+      const data = await res.json();
+      showApp(data.username);
+      return;
+    }
+  } catch {}
+  showAuth();
+}
 
 // --- Fetch & render ---
 
 async function fetchInventory() {
   try {
     const res = await fetch("/inventory");
+    if (res.status === 401) {
+      showAuth();
+      return;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     allItems = await res.json();
     statusEl.textContent = "connected";
@@ -154,7 +284,7 @@ itemForm.addEventListener("submit", async (e) => {
   try {
     let res;
     if (editingId != null) {
-      res = await fetch(`/update/${editingId}`, {
+      res = await fetch(`/inventory/${editingId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -166,6 +296,7 @@ itemForm.addEventListener("submit", async (e) => {
         body: JSON.stringify(payload),
       });
     }
+    if (res.status === 401) { showAuth(); return; }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     closeModal();
     await fetchInventory();
@@ -181,6 +312,7 @@ async function deleteItem(id) {
   if (!confirm(`Delete item #${id}?`)) return;
   try {
     const res = await fetch(`/inventory/${id}`, { method: "DELETE" });
+    if (res.status === 401) { showAuth(); return; }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     await fetchInventory();
     footerInfo.textContent = `Deleted item #${id}`;
@@ -192,7 +324,7 @@ async function deleteItem(id) {
 // --- Column sorting ---
 const columns = ["id", "name", "category", "brand", "size", "color", "quantity", "price"];
 document.querySelectorAll("th").forEach((th, i) => {
-  if (i >= columns.length) return; // skip actions column
+  if (i >= columns.length) return;
   th.addEventListener("click", () => {
     const col = columns[i];
     if (sortCol === col) {
@@ -209,4 +341,5 @@ document.querySelectorAll("th").forEach((th, i) => {
 
 searchInput.addEventListener("input", () => renderTable(allItems));
 
-fetchInventory();
+// --- Init ---
+checkSession();
